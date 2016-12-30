@@ -172,23 +172,26 @@ export default class FlipMove extends Component {
       if (! node)
         return
 
+      const rect = getBoundingRect(node, domBoundingRect)
       if (data.animation) {
-        // TODO: compare destination with destination when animation was created, if
-        // they are the same let it play out otherwise cancel it and set the new
-        // animation below
-        return
+        if (data.animateToTop === rect.top && data.animateToLeft === rect.left) {
+          // already animating to this location
+          return
+        }
+        data.animation.cancel()
+        delete data.animation
       }
 
-      // if child has recorded previous position...
       if (data.hasOwnProperty('top')) {
-        const rect = getBoundingRect(node, domBoundingRect)
+        // move from previous position
         const deltaX = data.left - rect.left
         const deltaY = data.top - rect.top
 
         if (deltaX !== 0 || deltaY !== 0) {
           // move node from current position to new position (if necessary)
-          // TODO: data.animation =
-          node.animate(
+          data.animateToTop = rect.top
+          data.animateToLeft = rect.left
+          data.animation = node.animate(
             [{ transform: `translate(${deltaX}px, ${deltaY}px)` }, { transform: `translate(0, 0)` }],
             // fill forwards is needed to compensate for delayed onfinish in firefox
             { duration: this._duration, easing: 'ease-in' }
@@ -196,14 +199,14 @@ export default class FlipMove extends Component {
         }
       }
       else {
-        const rect = getBoundingRect(node, domBoundingRect)
         // only animate nodes on screen
         if (rect.bottom < scrollTop || rect.top > maxHeight)
           return
 
+        data.animateToTop = rect.top
+        data.animateToLeft = rect.left - width
         // child has no recorded position so must be an entry
-        // TODO: data.animation =
-        node.animate(
+        data.animation = node.animate(
           [{ transform: `translateX(-${width}px)` }, { transform: `translateX(0)` }],
           { duration: this._duration, easing: 'ease-in' }
         )
@@ -212,33 +215,43 @@ export default class FlipMove extends Component {
 
     let hasImmediateLeaves = false
     _.forEach(this._deleting, (data, key) => {
-      if (! data.animation) {
-        const {node} = data
-        // avoid animations for stuff scrolled off screen ;)
-        if (data.bottom < scrollTop || data.top > maxHeight) {
-          node.style.display = 'none'
-          delete this._deleting[key]
-          hasImmediateLeaves = true
-          return
-        }
+      const {animation: existingAnimation} = data
+      const finalX = data.left < 0 ? -width : width
+      const newLeft = data.width + finalX
 
-        this._takeNodeOutOfFlow(data)
-        const animation = data.animation = node.animate(
-          [{ transform: `translateX(0)` }, { transform: `translateX(${width}px)` }],
-          // fill forwards is needed to compensate for delayed onfinish in firefox
-          { duration: this._duration, easing: 'ease-in', fill: 'forwards' }
-        )
-        ++nLeavesLeft
+      if (existingAnimation &&
+          data.animateToTop === data.top &&
+          data.animateToLeft === newLeft)
+        return
 
-        animation.onfinish = () => {
-          node.style.display = 'none'
-          delete this._deleting[key]
-          this._setChildren()
-          leaveAnimationOver()
-        }
-
-        animation.oncancel = leaveAnimationOver
+      const {node} = data
+      // avoid animations for stuff scrolled off screen ;)
+      if (data.bottom < scrollTop || data.top > maxHeight) {
+        node.style.display = 'none'
+        delete this._deleting[key]
+        hasImmediateLeaves = true
+        return
       }
+
+      this._takeNodeOutOfFlow(data)
+      data.animateToTop = data.top
+      data.animateToLeft = newLeft
+
+      const animation = data.animation = node.animate(
+        [{ transform: `translateX(${data.left}px)` }, { transform: `translateX(${finalX}px)` }],
+        // fill forwards is needed to compensate for delayed onfinish in firefox
+        { duration: this._duration, easing: 'ease-in', fill: 'forwards' }
+      )
+      ++nLeavesLeft
+
+      animation.onfinish = () => {
+        node.style.display = 'none'
+        delete this._deleting[key]
+        this._setChildren()
+        leaveAnimationOver()
+      }
+
+      animation.oncancel = leaveAnimationOver
     })
 
     if (hasImmediateLeaves)
