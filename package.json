@@ -1,0 +1,48 @@
+{
+  "name": "react-flip-webanimate",
+  "version": "0.0.0",
+  "description": "animate node entries, exits and moves using the FLIP technique via WebAnimations",
+  "main": "lib/index.js",
+  "scripts": {
+    "clean": "rimraf lib",
+    "build": "cross-env NODE_ENV=development babel src --out-dir lib"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/ohjames/redux-thunktions.git"
+  },
+  "keywords": [
+    "redux",
+    "fsa",
+    "middleware"
+  ],
+  "author": "James Pike <github@chilon.net>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ohjames/redux-thunktions/issues"
+  },
+  "homepage": "https://github.com/ohjames/redux-thunktions",
+  "peerDependencies": {
+    "react": "0.13.x || 0.14.x || 15.x.x",
+    "react-dom": "0.13.x || 0.14.x || 15.x.x"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.18.0",
+    "babel-core": "^6.21.0",
+    "babel-plugin-lodash": "^3.2.9",
+    "babel-preset-react-app": "^1.0.0",
+    "cross-env": "^3.1.3",
+    "rimraf": "^2.5.4"
+  },
+  "dependencies": {
+    "lodash": "^4.17.2"
+  },
+  "babel": {
+    "plugins": [
+      "lodash"
+    ],
+    "presets": [
+      "react-app"
+    ]
+  }
+}
