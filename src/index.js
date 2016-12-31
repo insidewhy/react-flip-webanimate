@@ -134,10 +134,6 @@ export default class FlipMove extends Component {
       this._children = newChildren
       this._setChildren()
     }
-
-    this._updateToken = Symbol()
-    const {scrollTop = document.body.scrollTop} = document.documentElement
-    this._dom.style.minHeight = (scrollTop + window.innerHeight) + 'px'
   }
 
   _setChildren() {
@@ -154,11 +150,12 @@ export default class FlipMove extends Component {
     const domBoundingRect = this._dom.getBoundingClientRect()
     const maxHeight = window.innerHeight - domBoundingRect.top + scrollTop
     const width = this._dom.clientWidth
+    const currentContainerHeight = scrollTop + window.innerHeight
 
     let nLeavesLeft = 0
-    let updateToken = this._updateToken
+    let deleteToken = null
     const leaveAnimationOver = () => {
-      if (this._updateToken !== updateToken)
+      if (this._deleteToken !== deleteToken)
         return
 
       if (--nLeavesLeft <= 0) {
@@ -173,16 +170,16 @@ export default class FlipMove extends Component {
         return
 
       const rect = getBoundingRect(node, domBoundingRect)
-      if (data.animation) {
-        if (data.animateToTop === rect.top && data.animateToLeft === rect.left) {
-          // already animating to this location
-          return
-        }
-        data.animation.cancel()
-        delete data.animation
-      }
-
       if (data.hasOwnProperty('top')) {
+        if (data.animation) {
+          // TODO: should compare animateToTop to the desired location without
+          // the transformation, this will never succeed
+          if (data.animateToTop === rect.top && data.animateToLeft === rect.left)
+            return
+          data.animation.cancel()
+          delete data.animation
+        }
+
         // move from previous position
         const deltaX = data.left - rect.left
         const deltaY = data.top - rect.top
@@ -214,10 +211,12 @@ export default class FlipMove extends Component {
     })
 
     let hasImmediateLeaves = false
+    let hasLeaves = false
     _.forEach(this._deleting, (data, key) => {
+      hasLeaves = true
       const {animation: existingAnimation} = data
       const finalX = data.left < 0 ? -width : width
-      const newLeft = data.width + finalX
+      const newLeft = data.left + finalX
 
       if (existingAnimation &&
           data.animateToTop === data.top &&
@@ -257,8 +256,10 @@ export default class FlipMove extends Component {
     if (hasImmediateLeaves)
       this._setChildren()
 
-    if (! nLeavesLeft)
-      leaveAnimationOver()
+    if (hasLeaves) {
+      this._dom.style.minHeight = currentContainerHeight + 'px'
+      deleteToken = this._deleteToken = Symbol()
+    }
 
     this._hasNewProps = false
   }
