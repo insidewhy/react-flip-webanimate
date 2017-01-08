@@ -1,7 +1,8 @@
 import React, {Component} from 'react'
 import ReactDom from 'react-dom'
-
 import _ from 'lodash'
+
+import registerSwipeHandler from './register-swipe-handler'
 
 const stopAnimation = nodeData => {
   const {animation} = nodeData
@@ -47,14 +48,22 @@ export default class FlipMove extends Component {
   }
 
   render() {
-    const {typeName, enterAnimation, leaveAnimation, duration, ...props} = this.props
+    const {typeName, onSwipe, onDragStart, onDragStop, duration, ...props} = this.props
     if (! this.state.enabled)
       return React.createElement(typeName, props, props.children)
 
     delete props.children
     this._duration = +duration
-    this._enterAnimation = enterAnimation
-    this._leaveAnimation = leaveAnimation
+
+    if (onSwipe) {
+      props.ref = element => {
+        const container = ReactDom.findDOMNode(element)
+        if (! container || container === this._container)
+          return
+        this._container = container
+        registerSwipeHandler(container, onSwipe, onDragStart, onDragStop)
+      }
+    }
 
     return React.createElement(typeName, props, this.state.children)
   }
@@ -117,6 +126,7 @@ export default class FlipMove extends Component {
           newChildren[key] = deleting
           setBoundingRect(deleting, domRect)
           stopAnimation(deleting)
+          deleting.node.style.zIndex = ''
           this._returnNodeToFlow(deleting)
           delete this._deleting[key]
         }
@@ -129,6 +139,7 @@ export default class FlipMove extends Component {
         if (! newChildren[key]) {
           setBoundingRect(child, domRect)
           this._deleting[key] = child
+          child.node.style.zIndex = -1
         }
       })
       this._children = newChildren
