@@ -1,8 +1,15 @@
-// swipe configuration
+// A drag in the x-axis of more than MIN_DRAG_DISTANCE is considered to
+// be a possible swipe and begins the animation. If the y-axis drag
+// exceeds MIN_DRAG_DISTANCE before the x-axis drag does then swiping
+// is disabled until the user releases their touch.
 const MIN_DRAG_DISTANCE = 15
+
+// To avoid putting pressure on the GC velocity measurements are only
+// deleted after they exceed N_STORE_VELOCITIES
 const N_STORE_VELOCITIES = 20
+
 // consider a drag has taken place when the weighted mean of the velocities
-// recorded within DRAG_VELOCITY_WINDOW exceeds MEAN_SWIPE_VELOCITY
+// recorded within DRAG_VELOCITY_WINDOW exceed MEAN_SWIPE_VELOCITY
 const DRAG_VELOCITY_WINDOW = 300
 const MEAN_SWIPE_VELOCITY = 0.8
 

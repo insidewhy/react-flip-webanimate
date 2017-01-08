@@ -21,7 +21,9 @@ const setBoundingRect = (child, domRect) => {
   // this doesn't factor in transforms that may be happening
   // child.top = child.node.offsetTop
   const rect = node.getBoundingClientRect()
-  // +1 to account for the negative margin...
+
+  // TODO: remove the (+ 1), the nodes position offset should be calculated
+  //       by looking at its margin/padding/border etc.
   child.top = rect.top - domRect.top + 1
   child.left = rect.left - domRect.left
   child.bottom = rect.bottom - domRect.top + 1
@@ -30,6 +32,7 @@ const setBoundingRect = (child, domRect) => {
 const getBoundingRect = (node, domRect) => {
   const rect = node.getBoundingClientRect()
   return {
+    // see previous TODO
     top: rect.top - domRect.top + 1,
     left: rect.left - domRect.left,
     bottom: rect.bottom - domRect.top + 1,
@@ -68,6 +71,13 @@ export default class FlipMove extends Component {
     return React.createElement(typeName, props, this.state.children)
   }
 
+  /**
+   * Create an element that wraps another and injects a ref that is used to
+   * capture the child element.
+   * @detail The `node` field in the returned object is not populated until
+   *         after the injected `ref` has been run.
+   * @return {Object} { element: React.Component, node: HTMLElement }
+   */
   _createElement(element) {
     const ret = {}
     ret.element = React.cloneElement(element, {
@@ -80,6 +90,11 @@ export default class FlipMove extends Component {
     return ret
   }
 
+  /**
+   * Usually copying props into state is a bad idea, in this case we need
+   * access to elements that have been removed so that the elements can be
+   * preserved until their leaving animation has ended.
+   */
   _initComponent(children) {
     this._children = _.mapValues(_.keyBy(children, 'key'), element => this._createElement(element))
     this.setState({ children: _.map(this._children, 'element') })
@@ -95,6 +110,11 @@ export default class FlipMove extends Component {
     this._initComponent(this.props.children)
   }
 
+  /**
+   * When new props are received the children are diffed to find out which
+   * nodes are moved/deleted/added, the positions of existing nodes are
+   * recorded so they can be used by componentDidUpdate.
+   */
   componentWillReceiveProps(props) {
     if (! this.state.enabled)
       return
@@ -152,6 +172,16 @@ export default class FlipMove extends Component {
     this.setState({ children: _.map(this._children, 'element').concat(_.map(this._deleting, 'element')) })
   }
 
+  /**
+   * This is called by react after the DOM nodes are created but before the
+   * browser has painted making it the ideal time to start animations.
+   *
+   * This works using a variation of the FLIP technique that used webanimations
+   * instead of requestAnimationFrame. Essentially the node is given a
+   * css transformation that translates it from its *new* position to its old
+   * position. Then a web animation is started which will move the node to its
+   * new position. Enter and leave animations are also handled here.
+   */
   componentDidUpdate() {
     // avoid testing stuff when only state has changed
     if (!  this._hasNewProps)
@@ -275,12 +305,18 @@ export default class FlipMove extends Component {
     this._hasNewProps = false
   }
 
+  /**
+   * This is used to keep an HTMLElement where it was positioned but remove it from the
+   * parent node's flow so that it does not contribute to height and the positioning of
+   * other elements
+   */
   _takeNodeOutOfFlow(data) {
     const {node} = data
     node.style.position = 'absolute'
     node.style.top = data.top + 'px'
   }
 
+  // Undo _takeNodeOutOfFlow
   _returnNodeToFlow(data) {
     const {node} = data
     node.style.position = ''
