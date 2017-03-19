@@ -1,6 +1,6 @@
 import React, {Component} from 'react'
 import ReactDom from 'react-dom'
-import _ from 'lodash'
+import {keyBy, mapValues, mapToArrayByProp} from 'mapdosh'
 
 import registerSwipeHandler from './register-swipe-handler'
 
@@ -47,7 +47,7 @@ export default class FlipMove extends Component {
     // all non-deleting child elements by key
     this._children = null
     // child elements that are deleting by key
-    this._deleting = {}
+    this._deleting = new Map()
   }
 
   render() {
@@ -96,8 +96,8 @@ export default class FlipMove extends Component {
    * preserved until their leaving animation has ended.
    */
   _initComponent(children) {
-    this._children = _.mapValues(_.keyBy(children, 'key'), element => this._createElement(element))
-    this.setState({ children: _.map(this._children, 'element') })
+    this._children = mapValues(keyBy(children, 'key'), element => this._createElement(element))
+    this.setState({ children: mapToArrayByProp(this._children, 'element') })
   }
 
   _getDom() {
@@ -128,37 +128,37 @@ export default class FlipMove extends Component {
       this._initComponent(props.children)
     }
     else {
-      const newChildren = {}
+      const newChildren = new Map()
       const domRect = _dom.getBoundingClientRect()
 
       props.children.forEach(element => {
         const {key} = element
-        const existing = this._children[key]
+        const existing = this._children.get(key)
         if (existing) {
-          newChildren[key] = existing
+          newChildren.set(key, existing)
           // recalculate bounding rectangle for existing node
           setBoundingRect(existing, domRect)
           return
         }
 
-        const deleting = this._deleting[key]
+        const deleting = this._deleting.get(key)
         if (deleting) {
-          newChildren[key] = deleting
+          newChildren.set(key, deleting)
           setBoundingRect(deleting, domRect)
           stopAnimation(deleting)
           deleting.node.style.zIndex = ''
           this._returnNodeToFlow(deleting)
-          delete this._deleting[key]
+          this._deleting.delete(key)
         }
         else {
-          newChildren[key] = this._createElement(element)
+          newChildren.set(key, this._createElement(element))
         }
       })
 
-      _.forEach(this._children, (child, key) => {
-        if (! newChildren[key]) {
+      this._children.forEach((child, key) => {
+        if (! newChildren.has(key)) {
           setBoundingRect(child, domRect)
-          this._deleting[key] = child
+          this._deleting.set(key, child)
           child.node.style.zIndex = -1
         }
       })
@@ -169,7 +169,7 @@ export default class FlipMove extends Component {
 
   _setChildren() {
     // the deletes must come after the rest so they don't interfere with the positions of other nodes
-    this.setState({ children: _.map(this._children, 'element').concat(_.map(this._deleting, 'element')) })
+    this.setState({ children: mapToArrayByProp(this._children, 'element').concat(mapToArrayByProp(this._deleting, 'element')) })
   }
 
   /**
@@ -205,7 +205,7 @@ export default class FlipMove extends Component {
       }
     }
 
-    _.forEach(this._children, (data, key) => {
+    this._children.forEach((data, key) => {
       const {node} = data
       if (! node)
         return
@@ -253,7 +253,7 @@ export default class FlipMove extends Component {
 
     let hasImmediateLeaves = false
     let hasLeaves = false
-    _.forEach(this._deleting, (data, key) => {
+    this._deleting.forEach((data, key) => {
       hasLeaves = true
       const {animation: existingAnimation} = data
       const finalX = data.left < 0 ? -width : width
@@ -268,7 +268,7 @@ export default class FlipMove extends Component {
       // avoid animations for stuff scrolled off screen ;)
       if (data.bottom < scrollTop || data.top > maxHeight) {
         node.style.display = 'none'
-        delete this._deleting[key]
+        this._deleting.delete(key)
         hasImmediateLeaves = true
         return
       }
@@ -286,7 +286,7 @@ export default class FlipMove extends Component {
 
       animation.onfinish = () => {
         node.style.display = 'none'
-        delete this._deleting[key]
+        this._deleting.delete(key)
         this._setChildren()
         leaveAnimationOver()
       }
